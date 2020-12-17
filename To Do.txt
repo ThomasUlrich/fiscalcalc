@@ -1,7 +1,1 @@
 Add holidays
-
-Add second axis on the right with the number of hours for each week
-https://stackoverflow.com/questions/14762181/adding-a-y-axis-label-to-secondary-y-axis-in-matplotlib
-
-
-Add number of hours to text under each calendar

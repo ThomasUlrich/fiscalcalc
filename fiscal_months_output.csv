@@ -1,0 +1,13 @@
+year,month_name,month,week_count,days_count,weekday_active,weekday_inactive,weekend_active,weekend_inactive,friday_off_active,friday_off_inactive
+2020,October,10,5,31,0,20,0,9,0,2
+2020,November,11,5,30,0,19,0,9,0,2
+2020,December,12,5,31,0,21,0,8,0,2
+2021,January,1,6,31,18,0,10,0,3,0
+2021,February,2,5,28,18,0,8,0,2,0
+2021,March,3,5,31,21,0,8,0,2,0
+2021,April,4,5,30,20,0,8,0,2,0
+2021,May,5,6,31,19,0,10,0,2,0
+2021,June,6,5,30,20,0,8,0,2,0
+2021,July,7,5,31,19,0,9,0,3,0
+2021,August,8,5,31,20,0,9,0,2,0
+2021,September,9,5,30,20,0,8,0,2,0

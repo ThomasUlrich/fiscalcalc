@@ -1,5 +1,4 @@
-import fiscalyear
-# import workdays
+import os
 import calendar
 import datetime as dt
 import matplotlib.pyplot as plt
@@ -10,6 +9,8 @@ import pandas as pd
 import json
 from collections import namedtuple
 from json import JSONEncoder
+
+os.system("clear")
 
 def format_print(label, value):
     value_str = str(value)
@@ -98,9 +99,11 @@ def swap_months(dates, data, end_year):
 def map_calendar(start_date, end_date, fridays, weekends, active_days):
     days = (end_date - start_date).days
     dates = []
-    data = []
+    month_categories = []
+    month_hours = []
     day_types = ['weekday_active', 'weekday_inactive', 'weekend_active', 'weekend_inactive', 'friday_off_active', 'friday_off_inactive']
-    day_type_counts = {}
+    week_counts_counts = {}
+    month_day_type_counts = {}
 
     cat_count = len(day_types)
     incr = 1
@@ -108,10 +111,11 @@ def map_calendar(start_date, end_date, fridays, weekends, active_days):
     coding_dict = {}
     for x in range(cat_count):
         coding_dict.update({day_types[x]:round(incr*x,2)})
-        day_type_counts.update({day_types[x]:0})
+        month_day_type_counts.update({day_types[x]:0})
 
     for x in range(0, days+1):
         code = ''
+        day_hours = 0
 
         if start_date+dt.timedelta(x) in active_days:
             if start_date+dt.timedelta(x) in fridays:
@@ -120,7 +124,11 @@ def map_calendar(start_date, end_date, fridays, weekends, active_days):
                 code = 'weekend_active'
             else:
                 code = 'weekday_active'
-            
+                #friday on
+                if ((start_date+dt.timedelta(x)).weekday() == 4):
+                    day_hours = 8
+                else:
+                    day_hours = 9
 
         else:
             if start_date+dt.timedelta(x) in fridays:
@@ -130,11 +138,15 @@ def map_calendar(start_date, end_date, fridays, weekends, active_days):
             else:
                 code = 'weekday_inactive'
 
-        data.append(coding_dict[code])
+        month_categories.append(coding_dict[code])
+        month_hours.append(day_hours)
         dates.append(start_date+dt.timedelta(x))
-        day_type_counts.update({code:day_type_counts[code]+1})
+        month_day_type_counts.update({code:month_day_type_counts[code]+1})
 
-    return dates, data, day_type_counts
+    
+    # print(month_categories)
+    # print(month_hours)
+    return dates, month_categories, month_hours, month_day_type_counts
 
 def month_segments(dates):
     months = []
@@ -163,12 +175,23 @@ def get_week_of_month(year, month, day):
     week_of_month = np.where(x==day)[0][0]
     return(week_of_month)
 
-def calendar_array(fig, ax, dates, data, day_type_count_dict):
+def calendar_array(fig, ax, dates, month_categories, month_hours, day_type_count_dict):
     i = []
     j = []
     last_week_count = None
 
-    print(dates[0].month)
+
+
+    month = dates[0].strftime('%B')
+    # month_log_dict = {'month':dates[0].month, 'week_count':last_week_count+1, 'days_count':len(dates)}
+
+    week_logs = []
+    week_hours_log_dict = {}
+
+    curr_week = get_week_of_month(dates[0].year, dates[0].month, dates[0].day)
+    last_week = -1
+
+
 
     for c, d in enumerate(dates):
         i.append(get_week_of_month(d.year, d.month, d.day))
@@ -180,44 +203,62 @@ def calendar_array(fig, ax, dates, data, day_type_count_dict):
         if c == len(dates)-1:
             last_week_count = get_week_of_month(d.year, d.month, d.day)
 
+        curr_week = get_week_of_month(d.year, d.month, d.day)
+
+        if curr_week != last_week:
+            if bool(week_hours_log_dict):
+                week_logs.append(week_hours_log_dict)
+                week_hours_log_dict = {}
+            week_hours_log_dict.update({'year':dates[0].year, 'month_name':month, 'month':dates[0].month, 'week':curr_week+1, 'hours':month_hours[c]})
+        else:
+            week_hours_log_dict.update({'hours':week_hours_log_dict['hours']+month_hours[c]})
+        last_week = int(curr_week)
+    week_logs.append(week_hours_log_dict)
+
     ni = max(i)+1
 
-    log_dict = {'month':d.month, 'weekd_count':last_week_count+1, 'days_count':len(dates)}
+    month_log_dict = {'year':dates[0].year, 'month_name':month, 'month':dates[0].month, 'week_count':last_week_count+1, 'days_count':len(dates)}
     format_print('*'*100,'')
-    format_print(d.strftime('%B'), d.month)
+    format_print(dates[0].strftime('%B'), dates[0].month)
     format_print('Total Weeks', last_week_count+1)
     format_print('Total Days', len(dates))
 
-    data_label = 'Workdays = {}'.format(day_type_count_dict['weekday_active'])
-    ax.text(0.5, last_week_count+1.05, data_label, ha='center')
+    hours_count = 0
+    for k, row in enumerate(week_logs):
+        hours_count+=row['hours']
 
-    dict_targets = ['weekday_active', 'weekday_inactive', 'weekend_active', 'weekend_inactive', 'friday_off_active', 'friday_off_inactive']
+    data_label = 'Work Days = {}, Work Hours = {}'.format(day_type_count_dict['weekday_active'], hours_count)
+    print(data_label)
+    ax.text(3, last_week_count+0.6, data_label, ha='center', va='top')
+
+    # dict_targets = ['weekday_active', 'weekday_inactive', 'weekend_active', 'weekend_inactive', 'friday_off_active', 'friday_off_inactive']
     for key in day_type_count_dict:
         format_print(key, day_type_count_dict[key])
-        log_dict.update({key:day_type_count_dict[key]})
+        month_log_dict.update({key:day_type_count_dict[key]})
+
 
     calendar = np.nan * np.zeros((ni, 7))
     print(calendar.shape)
-    calendar[i, j] = data
+    calendar[i, j] = month_categories
 
     print(calendar)
 
-    return i, j, calendar, log_dict
+    return i, j, calendar, month_log_dict, week_logs
 
-def calendar_highlight(fig, ax, dates, data, day_type_count_dict):
-    i, j, calendar, log_dict = calendar_array(fig, ax, dates, data, day_type_count_dict)
+def calendar_highlight(fig, ax, dates, month_categories, month_hours, day_type_count_dict):
+    i, j, calendar, month_log_dict, weeks_log = calendar_array(fig, ax, dates, month_categories, month_hours, day_type_count_dict)
 
     #'weekday_active', 'weekday_inactive', 'weekend_active', 'weekend_inactive', 'friday_off_active', 'friday_off_inactive'
     colors = ['#efc9af99', '#efc9af40', '#104c9199', '#104c9140', '#1f8ac099', '#1f8ac040']
     cmap = ListedColormap(colors)
 
     im = ax.imshow(calendar, interpolation='none', cmap=cmap, vmin=0, vmax=len(colors))
-    label_days(ax, dates, i, j, calendar)
-    return log_dict
+    label_days(ax, dates, i, j, calendar, weeks_log)
+    return month_log_dict, weeks_log
     # label_months(ax, dates, i, j, calendar)
     # ax.figure.colorbar(im)
 
-def label_days(ax, dates, i, j, calendar):
+def label_days(ax, dates, i, j, calendar, weeks_log):
     ni, nj = calendar.shape
    
     day_of_month = np.nan * np.zeros((ni, 7))
@@ -232,43 +273,39 @@ def label_days(ax, dates, i, j, calendar):
            xticklabels=['S', 'M', 'T', 'W', 'R', 'F', 'S'])
     ax.xaxis.tick_top()
 
-    ax.set(yticks=np.arange(ni))
-    ax.set_yticklabels([str(x+1) for x in np.arange(ni)])
+    ax.yaxis.set_visible(False)
+    week_counts = [str(x+1) for x in np.arange(ni)]
+    for i, count in enumerate(week_counts):
+        ax.text(-0.8, i, str(count), ha='left', va='center')
 
+    # ax.set_yticks(np.arange(ni))
+    # ax.set_yticklabels([str(x+1) for x in np.arange(ni)])
 
-def plot_month(fig, ax, dates, data, day_type_count_dict, title):
-    log_dict = calendar_highlight(fig, ax, dates, data, day_type_count_dict)
+    hour_counts = []
+    for i, row in enumerate(weeks_log):
+        hour_counts.append(row['hours'])
+
+    for i, count in enumerate(hour_counts):
+        if count > 0:
+            hour_text = str(count)
+        else:
+            hour_text = ''
+        ax.text(6.6, i, hour_text, ha='left', va='center')
+
+def plot_month(fig, ax, dates, month_categories, month_hours, day_type_count_dict, title):
+    month_log_dict, weeks_log = calendar_highlight(fig, ax, dates, month_categories, month_hours, day_type_count_dict)
     ax.set_title(title, fontweight='bold')
-    return log_dict
+    return month_log_dict, weeks_log
 
 
 def config_decoder(param_dict):
-    # param_dict_datetime = {}
-    # for key in param_dict:
-    #     x = namedtuple('X', param_dict.keys())(*[dt.datetime.strptime(s, '%Y-%m-%d') for s in param_dict.values()])
-    # x = namedtuple('X', param_dict.keys())(*param_dict.values())
-
-    # print(x)
     return namedtuple('config_decoding', param_dict.keys())(*[dt.datetime.strptime(s, '%Y-%m-%d') for s in param_dict.values()])
-
 
 class Config:
     def __init__(self, fy_start_date, fy_end_date, friday_off_start_date, sunday_start_date, active_start_date):
         self.fy_start_date, self.fy_end_date, self.friday_off_start_date, self.sunday_start_date, self.active_start_date = fy_start_date, fy_end_date, friday_off_start_date, sunday_start_date, active_start_date
 #         date_time_str = '2018-06-29 08:15:27.243860'
 #         date_time_obj = dt.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
-
-# print('Date:', date_time_obj.date())
-# print('Time:', date_time_obj.time())
-# print('Date-time:', date_time_obj)
-
-
-        
-
-        
-
-
-
 
 def main():
 
@@ -284,7 +321,7 @@ def main():
 
     weekend_day_count, weekends = weekend_days(config.fy_start_date, config.sunday_start_date, config.fy_end_date)
 
-    dates, data, day_type_counts = map_calendar(config.fy_start_date, config.fy_end_date, fridays_off, weekends, active_days)
+    dates, month_categories, month_hours, day_type_counts = map_calendar(config.fy_start_date, config.fy_end_date, fridays_off, weekends, active_days)
 
     #create 12 month bins
     month_arrays = month_segments(dates)
@@ -297,20 +334,28 @@ def main():
 
     active_weekdays_count_total = 0
 
+    weeks_data = []
     months_data = []
 
     for c in range(columns):
         for r in range(rows):
-            dates, data, day_type_count = map_calendar(month_arrays[mo_counter][0], month_arrays[mo_counter][-1], fridays_off, weekends, active_days)
-            active_weekdays_count_total += day_type_count['weekday_active']
-            log_dict = plot_month(fig, ax[c,r], dates, data, day_type_count, dates[0].strftime('%B %Y'))
-            months_data.append(log_dict)
+            dates, month_categories, month_hours, day_type_counts = map_calendar(month_arrays[mo_counter][0], month_arrays[mo_counter][-1], fridays_off, weekends, active_days)
+            active_weekdays_count_total += day_type_counts['weekday_active']
+            month_log_dict, weeks_log = plot_month(fig, ax[c,r], dates, month_categories, month_hours, day_type_counts, dates[0].strftime('%B %Y'))
+            months_data.append(month_log_dict)
+            weeks_data.extend(weeks_log)
             mo_counter += 1  
 
-    df = pd.DataFrame(months_data)
-    df.to_csv('fiscal_output.csv', index=False)
+    df_months = pd.DataFrame(months_data)
+    df_months.to_csv('fiscal_months_output.csv', index=False)
+    df_weeks = pd.DataFrame(weeks_data)
+    df_weeks.to_csv('fiscal_weeks_output.csv', index=False)
 
-    fig.text(0.5, 0.075, 'Total Workdays = {}'.format(active_weekdays_count_total), fontsize = 12, fontweight='bold', ha='center')
+    hour_count = 0
+    for i, row in enumerate(weeks_data):
+        hour_count+=row['hours']
+
+    fig.text(0.5, 0.09, 'Total Work Days = {}, Total Work Hours = {}'.format(active_weekdays_count_total, hour_count), fontsize = 12, fontweight='bold', ha='center')
 
     format_print('Total Active Weekdays', active_weekdays_count_total)
 
